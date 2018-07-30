@@ -9,18 +9,17 @@ Gem::Specification.new do |s|
   s.platform    = Gem::Platform::RUBY
   s.authors     = ["Shane Emmons"]
   s.email       = ["shane@emmons.io"]
-  s.homepage    = "http://rubymoney.github.io/money"
+  s.homepage    = "https://rubymoney.github.io/money"
   s.summary     = "A Ruby Library for dealing with money and currency conversion."
   s.description = "A Ruby Library for dealing with money and currency conversion."
   s.license     = "MIT"
 
-  s.add_dependency 'i18n', ['>= 0.6.4', '<= 0.7.0']
-  s.add_dependency 'sixarm_ruby_unaccent', ['>= 1.1.1', '< 2']
+  s.add_dependency 'i18n', [">= 0.6.4", '< 1.1']
 
   s.add_development_dependency "bundler", "~> 1.3"
   s.add_development_dependency "rake"
   s.add_development_dependency "rspec", "~> 3.4.0"
-  s.add_development_dependency "yard", "~> 0.8"
+  s.add_development_dependency "yard", "~> 0.9.11"
   s.add_development_dependency "kramdown", "~> 1.1"
 
   s.files         = `git ls-files`.split($/)

@@ -8,7 +8,7 @@ class Money
 
   # Represents a specific currency unit.
   #
-  # @see http://en.wikipedia.org/wiki/Currency
+  # @see https://en.wikipedia.org/wiki/Currency
   # @see http://iso4217.net/
   class Currency
     include Comparable
@@ -112,12 +112,12 @@ class Money
       #
       # == monetary unit
       # The standard unit of value of a currency, as the dollar in the United States or the peso in Mexico.
-      # http://www.answers.com/topic/monetary-unit
+      # https://www.answers.com/topic/monetary-unit
       # == fractional monetary unit, subunit
       # A monetary unit that is valued at a fraction (usually one hundredth) of the basic monetary unit
-      # http://www.answers.com/topic/fractional-monetary-unit-subunit
+      # https://www.answers.com/topic/fractional-monetary-unit-subunit
       #
-      # See http://en.wikipedia.org/wiki/List_of_circulating_currencies and
+      # See https://en.wikipedia.org/wiki/List_of_circulating_currencies and
       # http://search.cpan.org/~tnguyen/Locale-Currency-Format-1.28/Format.pm
       def table
         @table ||= load_currencies
@@ -173,6 +173,15 @@ class Money
         @stringified_keys = stringify_keys
       end
 
+      # Inherit a new currency from existing one
+      #
+      # @param parent_iso_code [String] the international 3-letter code as defined
+      # @param curr [Hash] See {register} method for hash structure 
+      def inherit(parent_iso_code, curr)
+        parent_iso_code = parent_iso_code.downcase.to_sym
+        curr = @table.fetch(parent_iso_code, {}).merge(curr)
+        register(curr)
+      end
 
       # Unregister a currency.
       #
@@ -399,37 +408,11 @@ class Money
     #
     # @return [Integer]
     def exponent
-      Math.log10(@subunit_to_unit).round
+      Math.log10(subunit_to_unit).round
     end
-
-    # Cache decimal places for subunit_to_unit values. Common ones pre-cached.
-    def self.decimal_places_cache
-      @decimal_places_cache ||= {1 => 0, 10 => 1, 100 => 2, 1000 => 3}
-    end
-
-    # The number of decimal places needed.
-    #
-    # @return [Integer]
-    def decimal_places
-      cache[subunit_to_unit] ||= calculate_decimal_places(subunit_to_unit)
-    end
+    alias decimal_places exponent
 
     private
-
-    def cache
-      self.class.decimal_places_cache
-    end
-
-    # If we need to figure out how many decimal places we need we
-    # use repeated integer division.
-    def calculate_decimal_places(num)
-      i = 1
-      while num >= 10
-        num /= 10
-        i += 1 if num >= 10
-      end
-      i
-    end
 
     def initialize_data!
       data = self.class.table[@id]

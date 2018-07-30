@@ -482,6 +482,24 @@ YAML
       expect(Money.new(10_00, "BRL").to_s).to eq "10,00"
     end
 
+    context "using i18n" do
+      before { I18n.backend.store_translations(:en, number: { format: { separator: "." } }) }
+      after { reset_i18n }
+
+      it "respects decimal mark" do
+        expect(Money.new(10_00, "BRL").to_s).to eq "10.00"
+      end
+    end
+
+    context "with defaults set" do
+      before { Money.default_formatting_rules = { with_currency: true } }
+      after { Money.default_formatting_rules = nil }
+
+      it "ignores defaults" do
+        expect(Money.new(10_00, 'USD').to_s).to eq '10.00'
+      end
+    end
+
     context "with infinite_precision", :infinite_precision do
       it "shows fractional cents" do
         expect(Money.new(1.05, "USD").to_s).to eq "0.0105"
@@ -550,6 +568,25 @@ YAML
     end
   end
 
+  describe "#with_currency" do
+    it 'returns self if currency is the same' do
+      money = Money.new(10_00, 'USD')
+
+      expect(money.with_currency('USD')).to eq(money)
+      expect(money.with_currency('USD').object_id).to eq(money.object_id)
+    end
+
+    it 'returns a new instance in a given currency' do
+      money = Money.new(10_00, 'USD')
+      new_money = money.with_currency('EUR')
+
+      expect(new_money).to eq(Money.new(10_00, 'EUR'))
+      expect(money.fractional).to eq(new_money.fractional)
+      expect(money.bank).to eq(new_money.bank)
+      expect(money.object_id).not_to eq(new_money.object_id)
+    end
+  end
+
   describe "#exchange_to" do
     it "exchanges the amount via its exchange bank" do
       money = Money.new(100_00, "USD")
@@ -591,6 +628,18 @@ YAML
       expect(moneys[1]).to eq Money.us_dollar(3)
     end
 
+    it "handles small splits" do
+      moneys = Money.us_dollar(5).allocate([0.03, 0.07])
+      expect(moneys[0]).to eq Money.us_dollar(2)
+      expect(moneys[1]).to eq Money.us_dollar(3)
+    end
+
+    it "handles large splits" do
+      moneys = Money.us_dollar(5).allocate([3, 7])
+      expect(moneys[0]).to eq Money.us_dollar(2)
+      expect(moneys[1]).to eq Money.us_dollar(3)
+    end
+
     it "does not lose pennies" do
       moneys = Money.us_dollar(100).allocate([0.333, 0.333, 0.333])
       expect(moneys[0].cents).to eq 34
@@ -598,13 +647,29 @@ YAML
       expect(moneys[2].cents).to eq 33
     end
 
+    it "does not round rationals" do
+      splits = 7.times.map { Rational(950, 6650) }
+      moneys = Money.us_dollar(6650).allocate(splits)
+      moneys.each do |money|
+        expect(money.cents).to eq 950
+      end
+    end
+
+    it "handles mixed split types" do
+      splits = [Rational(1, 4), 0.25, 0.25, BigDecimal('0.25')]
+      moneys = Money.us_dollar(100).allocate(splits)
+      moneys.each do |money|
+        expect(money.cents).to eq 25
+      end
+    end
+
     context "negative amount" do
       it "does not lose pennies" do
         moneys = Money.us_dollar(-100).allocate([0.333, 0.333, 0.333])
 
-        expect(moneys[0].cents).to eq -34
-        expect(moneys[1].cents).to eq -33
-        expect(moneys[2].cents).to eq -33
+        expect(moneys[0].cents).to eq(-34)
+        expect(moneys[1].cents).to eq(-33)
+        expect(moneys[2].cents).to eq(-33)
       end
 
       it "allocates the same way as positive amounts" do
@@ -615,10 +680,6 @@ YAML
       end
     end
 
-    it "requires total to be less then 1" do
-      expect { Money.us_dollar(0.05).allocate([0.5, 0.6]) }.to raise_error(ArgumentError)
-    end
-
     it "keeps subclasses intact" do
       special_money_class = Class.new(Money)
       expect(special_money_class.new(005).allocate([1]).first).to be_a special_money_class
@@ -626,12 +687,8 @@ YAML
 
     context "with infinite_precision", :infinite_precision do
       it "allows for fractional cents allocation" do
-        one_third = BigDecimal("1") / BigDecimal("3")
-
-        moneys = Money.new(100).allocate([one_third, one_third, one_third])
-        expect(moneys[0].cents).to eq one_third * BigDecimal("100")
-        expect(moneys[1].cents).to eq one_third * BigDecimal("100")
-        expect(moneys[2].cents).to eq one_third * BigDecimal("100")
+        moneys = Money.new(100).allocate([1, 1, 1])
+        expect(moneys.inject(0, :+)).to eq(Money.new(100))
       end
     end
   end
@@ -668,26 +725,39 @@ YAML
 
     context "with infinite_precision", :infinite_precision do
       it "allows for splitting by fractional cents" do
-        thirty_three_and_one_third = BigDecimal("100") / BigDecimal("3")
-
         moneys = Money.new(100).split(3)
-        expect(moneys[0].cents).to eq thirty_three_and_one_third
-        expect(moneys[1].cents).to eq thirty_three_and_one_third
-        expect(moneys[2].cents).to eq thirty_three_and_one_third
+        expect(moneys.inject(0, :+)).to eq(Money.new(100))
       end
     end
   end
 
   describe "#round" do
-
     let(:money) { Money.new(15.75, 'NZD') }
     subject(:rounded) { money.round }
 
     context "without infinite_precision" do
-      it "returns self (as it is already rounded)" do
-        rounded = money.round
-        expect(rounded).to be money
+      it "returns a different money" do
+        expect(rounded).not_to be money
+      end
+
+      it "rounds the cents" do
         expect(rounded.cents).to eq 16
+      end
+
+      it "maintains the currency" do
+        expect(rounded.currency).to eq Money::Currency.new('NZD')
+      end
+
+      it "uses a provided rounding strategy" do
+        rounded = money.round(BigDecimal::ROUND_DOWN)
+        expect(rounded.cents).to eq 15
+      end
+
+      it "does not accumulate rounding error" do
+        money_1 = Money.new(10.9).round(BigDecimal::ROUND_DOWN)
+        money_2 = Money.new(10.9).round(BigDecimal::ROUND_DOWN)
+
+        expect(money_1 + money_2).to eq(Money.new(20))
       end
     end
 
@@ -709,13 +779,29 @@ YAML
         expect(rounded.cents).to eq 15
       end
 
-      context "when using a subclass of Money" do
-        let(:special_money_class) { Class.new(Money) }
-        let(:money) { special_money_class.new(15.75, 'NZD') }
+      context "when using a specific rounding precision" do
+        let(:money) { Money.new(15.7526, 'NZD') }
 
-        it "preserves the class in the result" do
-          expect(rounded).to be_a special_money_class
+        it "uses the provided rounding precision" do
+          rounded = money.round(BigDecimal::ROUND_DOWN, 3)
+          expect(rounded.fractional).to eq 15.752
         end
+      end
+    end
+
+    it 'preserves assigned bank' do
+      bank = Money::Bank::VariableExchange.new
+      rounded = Money.new(1_00, 'USD', bank).round
+
+      expect(rounded.bank).to eq(bank)
+    end
+
+    context "when using a subclass of Money" do
+      let(:special_money_class) { Class.new(Money) }
+      let(:money) { special_money_class.new(15.75, 'NZD') }
+
+      it "preserves the class in the result" do
+        expect(rounded).to be_a special_money_class
       end
     end
   end

@@ -6,7 +6,7 @@ class Money
     FOO = '{ "priority": 1, "iso_code": "FOO", "iso_numeric": "840", "name": "United States Dollar", "symbol": "$", "subunit": "Cent", "subunit_to_unit": 1000, "symbol_first": true, "html_entity": "$", "decimal_mark": ".", "thousands_separator": ",", "smallest_denomination": 1 }'
 
     def register_foo(opts={})
-      foo_attrs = JSON.parse(FOO, :symbolize_names => true)
+      foo_attrs = JSON.parse(FOO, symbolize_names: true)
       # Pass an array of attribute names to 'skip' to remove them from the 'FOO'
       # json before registering foo as a currency.
       Array(opts[:skip]).each { |attr| foo_attrs.delete(attr) }
@@ -14,7 +14,7 @@ class Money
     end
 
     def unregister_foo
-      Currency.unregister(JSON.parse(FOO, :symbolize_names => true))
+      Currency.unregister(JSON.parse(FOO, symbolize_names: true))
     end
 
     describe "UnknownCurrency" do
@@ -82,7 +82,7 @@ class Money
         expect(Currency.all.first.priority).to eq 1
       end
       it "raises a MissingAttributeError if any currency has no priority" do
-        register_foo(:skip => :priority)
+        register_foo(skip: :priority)
 
         expect{Money::Currency.all}.to \
           raise_error(Money::Currency::MissingAttributeError, /foo.*priority/)
@@ -111,6 +111,32 @@ class Money
         expect {
           Currency.register(name: "New Currency")
         }.to raise_error(KeyError)
+      end
+    end
+
+
+    describe ".inherit" do
+      after do
+        Currency.unregister(iso_code: "XXX") if Currency.find("XXX")
+        Currency.unregister(iso_code: "YYY") if Currency.find("YYY")
+      end
+
+      it "inherit a new currency" do
+        Currency.register(
+          iso_code: "XXX",
+          name: "Golden Doubloon",
+          symbol: "%",
+          subunit_to_unit: 100
+        )
+        Currency.inherit("XXX",
+          iso_code: "YYY",
+          symbol: "@"
+        )
+        new_currency = Currency.find("YYY")
+        expect(new_currency).not_to be_nil
+        expect(new_currency.name).to eq "Golden Doubloon"
+        expect(new_currency.symbol).to eq "@"
+        expect(new_currency.subunit_to_unit).to eq 100
       end
     end
 

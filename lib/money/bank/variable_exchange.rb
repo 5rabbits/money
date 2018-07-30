@@ -47,7 +47,7 @@ class Money
       # Available formats for importing/exporting rates.
       RATE_FORMATS = [:json, :ruby, :yaml].freeze
       SERIALIZER_SEPARATOR = '_TO_'.freeze
-      FORMAT_SERIALIZERS = {:json => JSON, :ruby => Marshal, :yaml => YAML}.freeze
+      FORMAT_SERIALIZERS = {json: JSON, ruby: Marshal, yaml: YAML}.freeze
 
       # Initializes a new +Money::Bank::VariableExchange+ object.
       # It defaults to using an in-memory, thread safe store instance for
@@ -119,14 +119,14 @@ class Money
       end
 
       def calculate_fractional(from, to_currency)
-        BigDecimal.new(from.fractional.to_s) / (
-          BigDecimal.new(from.currency.subunit_to_unit.to_s) /
-          BigDecimal.new(to_currency.subunit_to_unit.to_s)
+        BigDecimal(from.fractional.to_s) / (
+          BigDecimal(from.currency.subunit_to_unit.to_s) /
+          BigDecimal(to_currency.subunit_to_unit.to_s)
         )
       end
 
       def exchange(fractional, rate, &block)
-        ex = fractional * BigDecimal.new(rate.to_s)
+        ex = fractional * BigDecimal(rate.to_s)
         if block_given?
           yield ex
         elsif @rounding_method
