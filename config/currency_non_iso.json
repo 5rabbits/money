@@ -109,5 +109,20 @@
     "thousands_separator": ",",
     "iso_numeric": "",
     "smallest_denomination": 1
+  },
+  "utm": {
+    "priority": 100,
+    "iso_code": "UTM",
+    "name": "Unidad tributaria mensual",
+    "symbol": "UTM",
+    "alternate_symbols": [],
+    "subunit": "Peso",
+    "subunit_to_unit": 100,
+    "symbol_first": true,
+    "html_entity": "&#x20B1;",
+    "decimal_mark": ",",
+    "thousands_separator": ".",
+    "iso_numeric": "",
+    "smallest_denomination":""
   }
 }
